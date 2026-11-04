@@ -2,7 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#34203F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>픽셀올로지</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap">
@@ -16,12 +20,12 @@
     --err:#FFB199; --ok:#7CF0C0;
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{background:var(--sky-top);color:var(--text);font-family:Galmuri11,'Noto Sans KR',sans-serif;-webkit-font-smoothing:none}
+  html,body{position:fixed;inset:0;width:100%;height:100%;margin:0;overflow:hidden;overscroll-behavior:none;background:#0E3D2E}
+  body{color:var(--text);font-family:Galmuri11,'Noto Sans KR',sans-serif;-webkit-font-smoothing:none;-webkit-text-size-adjust:100%;touch-action:manipulation}
   canvas{image-rendering:pixelated;display:block}
-  .stage{position:relative;min-height:100%;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:84px 20px 256px;background:linear-gradient(var(--sky-top),var(--sky-mid) 55%,var(--sky-low))}
-  body.form .stage{padding:24px 16px 84px}
+  .stage{position:absolute;inset:0;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:calc(84px + env(safe-area-inset-top,0px)) 20px 256px;background:linear-gradient(var(--sky-top),var(--sky-mid) 55%,var(--sky-low))}
+  body.form .stage{padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(44px + env(safe-area-inset-bottom,0px))}
   .floor{position:absolute;left:-60%;right:-60%;bottom:0;height:300px;perspective:220px;overflow:hidden;pointer-events:none}
   .floor i{position:absolute;inset:-40% 0 0;transform:rotateX(62deg);transform-origin:50% 100%;
     background:repeating-linear-gradient(90deg,var(--grid) 0 2px,transparent 2px 56px),repeating-linear-gradient(0deg,var(--grid) 0 2px,transparent 2px 44px);opacity:.5}
@@ -302,15 +306,19 @@ function mount(html,after){frame.innerHTML=html;
     const art={npc:[NPC,P],coin:[COIN,P],back:[BACK,P],heart:[HEART,P],gem:[GEM,P],chest:[CHEST_OPEN,CHEST_PAL],star:[STAR,P],box:[CHEST,CHEST_PAL],slime:[SLIME,{g:'#5B7FE0',G:'#8FA8F0',k:'#1E1329'}],flower:[FLOWER,{...P,g:'#3FB27F',o:'#7A4A1E'}]}[k];el.appendChild(sprite(art[0],art[1],+s||3))});
   frame.querySelectorAll('[data-eye]').forEach(b=>b.onclick=()=>{const i=b.parentElement.querySelector('input'),show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'가리기':'보기';b.setAttribute('aria-pressed',show)});
   frame.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
-  after&&after();
+  after&&after();fit();
   const first=$('input:not([type=checkbox])');if(first)first.focus()}
+// 스크롤 없는 앱이라, 패널이 화면보다 크면 잘리지 않도록 화면 높이에 맞춰 줄인다.
+function fit(){frame.style.zoom=1;const s=getComputedStyle(stage),room=stage.clientHeight-parseFloat(s.paddingTop)-parseFloat(s.paddingBottom),h=frame.offsetHeight;
+  frame.style.zoom=h>room?(room/h).toFixed(3):1}
+addEventListener('resize',()=>{if(!document.activeElement.matches('input'))fit()});
 const ENTRY_SOUND={done:'success',dormant:'welcome',restore:'welcome'};
 function go(name,...a){document.body.classList.toggle('form',name!=='title');screens[name](...a);scrollTo(0,0);SFX[ENTRY_SOUND[name]||'page']()}
 const top_=(back,gems=0)=>`<div class="top"><button class="back" type="button" aria-label="뒤로" data-go="${back}"><span data-sprite="back:3"></span></button>
   ${gems?`<div class="row" aria-label="가입 진행 ${gems}/5" role="img">${[1,2,3,4,5].map(i=>`<span id="g${i}" class="${i>gems?'dim':''}" data-sprite="gem:3"></span>`).join('')}</div>`:''}</div>`;
 const talk=(line)=>`<div class="talk"><span data-sprite="npc:4" aria-hidden="true"></span><p class="say"><span class="who">문지기</span>${line}</p></div>`;
 const pwField=(id,label)=>`<div class="field"><label for="${id}">${label}</label><div class="box"><input class="pad" id="${id}" type="password" autocomplete="new-password"><button class="mini" type="button" data-eye aria-pressed="false">보기</button></div><p class="note" id="${id}N">영문·숫자 포함 8자 이상</p></div>`;
-function mark(input,note,msg,base=''){if(msg&&note.textContent!==msg)SFX.error();input.classList.toggle('bad',!!msg);input.setAttribute('aria-invalid',!!msg);note.textContent=msg||base;note.classList.toggle('bad',!!msg)}
+function mark(input,note,msg,base=''){if(msg&&note.textContent!==msg)SFX.error();input.classList.toggle('bad',!!msg);input.setAttribute('aria-invalid',!!msg);note.textContent=msg||base;note.classList.toggle('bad',!!msg);fit()}
 function enter(user){user.seen=Date.now();S.user=user;go('lobby')}
 
 const screens={
