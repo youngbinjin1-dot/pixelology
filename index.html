@@ -114,8 +114,12 @@
 </main>
 <script>
 // 8비트 UI 사운드: Web Audio로 합성해서 작고 짧게 낸다. 첫 입력 전에는 브라우저가 소리를 막는다.
-const SFX=(()=>{let ctx,master,on=true;
- function init(){if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;ctx=new AC();master=ctx.createGain();master.gain.value=.7;
+const SFX=(()=>{let ctx,master,on=true,unlocked=false;
+ // 휴대폰 스피커는 작은 소리가 묻히므로 터치 기기에서는 더 크게 낸다.
+ function init(){if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+   // 아이폰 무음 스위치가 켜져 있어도 앱 소리가 나도록 재생 세션으로 둔다.
+   try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
+   ctx=new AC();master=ctx.createGain();master.gain.value=matchMedia('(pointer:coarse)').matches?2.4:.7;
    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=4200;master.connect(lp);lp.connect(ctx.destination)}
   if(ctx.state==='suspended')ctx.resume()}
  function tone(f,{t=0,dur=.08,type='sine',gain=.06,to=null,attack=.004}={}){if(!ctx||!on)return;const n=ctx.currentTime+t,o=ctx.createOscillator(),g=ctx.createGain();
@@ -125,7 +129,10 @@ const SFX=(()=>{let ctx,master,on=true;
   for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource();src.buffer=buf;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.Q.value=1.4;
   bp.frequency.setValueAtTime(from,n);bp.frequency.exponentialRampToValueAtTime(to,n+dur);const g=ctx.createGain();g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(gain,n+dur*.35);g.gain.exponentialRampToValueAtTime(.0001,n+dur);
   src.connect(bp);bp.connect(g);g.connect(master);src.start(n);src.stop(n+dur)}
- return{init,toggle(){on=!on;return on},
+ // 휴대폰 브라우저는 손가락을 뗄 때만 소리를 허용한다. 그때 빈 소리를 한 번 재생해 오디오를 깨운다.
+ function unlock(){init();if(!ctx)return;if(!unlocked){const s=ctx.createBufferSource();s.buffer=ctx.createBuffer(1,1,22050);s.connect(ctx.destination);s.start(0)}
+  ctx.resume().then(()=>{unlocked=ctx.state==='running'},()=>{})}
+ return{init,unlock,state:()=>ctx?ctx.state:'none',toggle(){on=!on;return on},
   press(){tone(220,{dur:.08,to:150,gain:.1});tone(1760,{dur:.016,type:'square',gain:.008})},
   type(){tone(900+Math.random()*200,{dur:.018,type:'square',gain:.004})},
   focus(){tone(988,{dur:.03,type:'square',gain:.008})},
@@ -449,7 +456,9 @@ const screens={
 const NOTE=['..wwww','..wwww','..w..w','..w..w','www.ww','www...'];
 document.getElementById('sound').appendChild(sprite(NOTE,P,3));
 document.getElementById('sound').onclick=e=>{e.currentTarget.setAttribute('aria-pressed',SFX.toggle());SFX.tick()};
-addEventListener('pointerdown',e=>{SFX.init();if(e.target.closest('.btn,.link,.back,.mini'))SFX.press()},true);
+['pointerup','touchend','click','keydown'].forEach(t=>addEventListener(t,SFX.unlock,{capture:true,passive:true}));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)SFX.unlock()});
+addEventListener('pointerup',e=>{if(e.target.closest('.btn,.link,.back,.mini,.buy'))SFX.press()},true);
 addEventListener('keydown',e=>{SFX.init();if(e.target.matches('input')&&(e.key.length===1||e.key==='Backspace'))SFX.type()},true);
 frame.addEventListener('focusin',e=>{if(e.target.matches('input:not([type=checkbox])'))SFX.focus()});
 frame.addEventListener('change',e=>{if(e.target.type==='checkbox')SFX.check(e.target.checked)});
