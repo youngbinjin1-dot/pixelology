@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>픽셀올로지</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --sky-top:#34203F; --sky-mid:#44264E; --sky-low:#5E3460;
+    --grid:#E05FC4; --line:#FBF6EA; --panel:rgba(36,22,54,.82); --panel-solid:rgba(36,22,54,.95);
+    --yellow:#FFC93C; --yellow-deep:#E0921A; --blue:#8FA8F0; --blue-deep:#5570C8;
+    --ink:#1E1329; --text:#FBF6EA; --muted:#D9CBE3; --field:#1E1329; --edge:#8A7AA0;
+    --err:#FFB199; --ok:#7CF0C0;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--sky-top);color:var(--text);font-family:Galmuri11,'Noto Sans KR',sans-serif;-webkit-font-smoothing:none}
+  canvas{image-rendering:pixelated;display:block}
+  .stage{position:relative;min-height:100%;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:84px 20px 256px;background:linear-gradient(var(--sky-top),var(--sky-mid) 55%,var(--sky-low))}
+  body.form .stage{padding:24px 16px 84px}
+  .floor{position:absolute;left:-60%;right:-60%;bottom:0;height:300px;perspective:220px;overflow:hidden;pointer-events:none}
+  .floor i{position:absolute;inset:-40% 0 0;transform:rotateX(62deg);transform-origin:50% 100%;
+    background:repeating-linear-gradient(90deg,var(--grid) 0 2px,transparent 2px 56px),repeating-linear-gradient(0deg,var(--grid) 0 2px,transparent 2px 44px);opacity:.5}
+  .deco{position:absolute;pointer-events:none}
+  .twinkle{animation:tw 1.6s steps(2) infinite}
+  @keyframes tw{50%{opacity:.25}}
+  .drift{animation:dr 5s steps(5) infinite alternate}
+  @keyframes dr{to{transform:translateX(15px)}}
+  .flame{animation:fl .4s step-end infinite}
+  @keyframes fl{0%{transform:none}50%{transform:scaleX(-1)}}
+
+  .frame{position:relative;z-index:2;width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:20px;
+    padding:30px 20px 22px;border:3px solid var(--line);border-radius:30px;background:var(--panel)}
+  body.form .frame{align-items:stretch;gap:16px;padding:18px 18px 20px;background:var(--panel-solid)}
+  .brand{margin:0;display:flex;align-items:center;gap:8px;font:700 15px 'Pixelify Sans',Galmuri11,sans-serif;letter-spacing:.14em}
+  h1{margin:0;font:700 45px/1.1 Galmuri14,Galmuri11,sans-serif;letter-spacing:-.01em;color:var(--line);text-shadow:3px 3px 0 #C2379F}
+  .acts{width:100%;display:flex;gap:12px}
+  .btn{flex:1;min-height:56px;border:0;border-radius:999px;cursor:pointer;font:700 16px Galmuri11,sans-serif;letter-spacing:.04em;color:var(--ink);transition:transform 80ms steps(2)}
+  .btn.go{background:var(--yellow);box-shadow:inset 0 -6px 0 var(--yellow-deep)}
+  .btn.alt{background:var(--blue);box-shadow:inset 0 -6px 0 var(--blue-deep)}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:active{transform:translateY(3px)}
+  .btn.go:active{box-shadow:inset 0 -3px 0 var(--yellow-deep)}
+  .btn.alt:active{box-shadow:inset 0 -3px 0 var(--blue-deep)}
+  :is(.btn,.link,.back,.mini,input,summary):focus-visible{outline:3px solid var(--line);outline-offset:2px}
+
+  .top{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+  .back{width:44px;height:44px;margin-left:-8px;display:grid;place-items:center;border:0;background:none;cursor:pointer}
+  .row{display:flex;gap:5px;align-items:center}
+  .dim{opacity:.22}
+  .talk{display:flex;align-items:center;gap:12px}
+  .say{margin:0;flex:1;min-width:0;font:400 15px/1.6 Galmuri14,Galmuri11,sans-serif}
+  .who{display:block;font:400 12px/1.4 Galmuri11,sans-serif;color:var(--yellow);margin-bottom:2px}
+  form{display:flex;flex-direction:column;gap:14px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  label,.lab{font:400 12px/1.4 Galmuri11,sans-serif;color:var(--muted)}
+  .box{position:relative;display:flex}
+  input[type=text],input[type=email],input[type=password]{flex:1;min-width:0;width:100%;height:52px;padding:0 14px;font:400 16px Galmuri11,sans-serif;color:var(--text);
+    background:var(--field);border:3px solid var(--edge);border-radius:14px}
+  .field>input{flex:none}
+  input::placeholder{color:#B7A9C4}
+  input:focus{outline:none;border-color:var(--yellow)}
+  input.bad{border-color:var(--err)}
+  .code{text-align:center;letter-spacing:.5em;font-size:24px!important;padding-left:calc(14px + .5em)!important}
+  .mini{position:absolute;right:6px;top:4px;height:44px;padding:0 10px;border:0;background:none;cursor:pointer;font:400 12px Galmuri11,sans-serif;color:var(--yellow)}
+  .pad{padding-right:64px}
+  .note{margin:0;min-height:17px;font:400 12px/1.4 Galmuri11,sans-serif;color:var(--muted)}
+  .note.bad{color:var(--err)}
+  .note.ok{color:var(--ok)}
+  .link{align-self:center;min-height:44px;padding:0 8px;border:0;background:none;cursor:pointer;font:400 12px Galmuri11,sans-serif;color:var(--line);text-decoration:underline;text-underline-offset:3px}
+  .check{display:flex;align-items:center;gap:10px;min-height:32px;font:400 12px/1.5 Galmuri11,sans-serif;color:var(--text);cursor:pointer}
+  .check input{width:22px;height:22px;margin:0;flex:none;accent-color:var(--yellow)}
+  .checks{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;border:0}
+  dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:10px 16px;padding:14px 0;border-block:2px dashed var(--edge);font:400 12px/1.5 Galmuri11,sans-serif}
+  dt{color:var(--muted)}
+  dd{margin:0;text-align:right;color:var(--text)}
+  dd b{font-weight:400;color:var(--yellow)}
+  .hero{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+  .big{margin:0;font:700 30px/1.3 Galmuri14,Galmuri11,sans-serif;color:var(--line);text-shadow:3px 3px 0 #C2379F}
+  .tag{margin:0;font:700 15px 'Pixelify Sans',Galmuri11,sans-serif;letter-spacing:.14em;color:var(--yellow)}
+  .burst{justify-content:center;gap:14px}
+  .wallet{margin:0;font:400 12px Galmuri11,sans-serif;color:var(--muted)}
+  .wallet b{font-weight:400;color:var(--yellow)}
+  .shop{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .shop li{display:grid;grid-template-columns:60px minmax(0,1fr) auto;align-items:center;gap:4px 12px;padding:8px;border:2px solid var(--edge);border-radius:14px;background:var(--field)}
+  .cover{width:60px;height:60px;display:grid;place-items:center;border-radius:10px;background:#3E2A5C}
+  .info{min-width:0}
+  .name{margin:0 0 2px;font:400 15px/1.3 Galmuri14,Galmuri11,sans-serif}
+  .buy{min-width:76px;height:44px;padding:0 10px;border:0;border-radius:999px;cursor:pointer;font:700 12px Galmuri11,sans-serif;color:var(--ink);background:var(--yellow);box-shadow:inset 0 -4px 0 var(--yellow-deep)}
+  .buy:active{transform:translateY(2px)}
+  .buy:focus-visible{outline:3px solid var(--line);outline-offset:2px}
+  .buy:disabled{background:#5A4A6E;color:var(--text);box-shadow:none;cursor:default}
+  .lack{grid-column:3;min-height:0;text-align:right;color:var(--err)}
+  .sound{position:absolute;z-index:3;right:6px;bottom:0;width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:50%;background:var(--ink);cursor:pointer}
+  .sound[aria-pressed=false] canvas{opacity:.35}
+  .sound:focus-visible{outline:3px solid var(--line);outline-offset:2px}
+  .btn:disabled,.link:disabled{opacity:.55;cursor:default}
+  @media (prefers-reduced-motion:reduce){.twinkle,.drift,.flame{animation:none}}
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <div class="floor" aria-hidden="true"><i></i></div>
+  <section class="frame" id="frame" aria-live="polite"></section>
+  <button class="sound" id="sound" type="button" aria-label="소리" aria-pressed="true"></button>
+</main>
+<script>
+// 8비트 UI 사운드: Web Audio로 합성해서 작고 짧게 낸다. 첫 입력 전에는 브라우저가 소리를 막는다.
+const SFX=(()=>{let ctx,master,on=true;
+ function init(){if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;ctx=new AC();master=ctx.createGain();master.gain.value=.7;
+   const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=4200;master.connect(lp);lp.connect(ctx.destination)}
+  if(ctx.state==='suspended')ctx.resume()}
+ function tone(f,{t=0,dur=.08,type='sine',gain=.06,to=null,attack=.004}={}){if(!ctx||!on)return;const n=ctx.currentTime+t,o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,n);if(to)o.frequency.exponentialRampToValueAtTime(to,n+dur);
+  g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(gain,n+attack);g.gain.exponentialRampToValueAtTime(.0001,n+dur);o.connect(g);g.connect(master);o.start(n);o.stop(n+dur+.03)}
+ function swoosh(from,to,{dur=.24,gain=.035}={}){if(!ctx||!on)return;const n=ctx.currentTime,len=Math.floor(ctx.sampleRate*dur),buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource();src.buffer=buf;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.Q.value=1.4;
+  bp.frequency.setValueAtTime(from,n);bp.frequency.exponentialRampToValueAtTime(to,n+dur);const g=ctx.createGain();g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(gain,n+dur*.35);g.gain.exponentialRampToValueAtTime(.0001,n+dur);
+  src.connect(bp);bp.connect(g);g.connect(master);src.start(n);src.stop(n+dur)}
+ return{init,toggle(){on=!on;return on},
+  press(){tone(220,{dur:.08,to:150,gain:.1});tone(1760,{dur:.016,type:'square',gain:.008})},
+  type(){tone(900+Math.random()*200,{dur:.018,type:'square',gain:.004})},
+  focus(){tone(988,{dur:.03,type:'square',gain:.008})},
+  tick(){tone(1175,{dur:.03,type:'square',gain:.011})},
+  check(v){v?(tone(784,{dur:.06,type:'square',gain:.016}),tone(1175,{t:.05,dur:.11,type:'square',gain:.014})):(tone(784,{dur:.05,type:'square',gain:.013}),tone(523,{t:.045,dur:.09,type:'square',gain:.012}))},
+  coin(){tone(988,{dur:.06,type:'square',gain:.016});tone(1319,{t:.06,dur:.22,type:'square',gain:.016})},
+  page(){swoosh(420,1500);tone(523.25,{t:.05,dur:.18,type:'triangle',gain:.03})},
+  error(){tone(311,{dur:.1,type:'square',gain:.02});tone(233,{t:.09,dur:.18,type:'square',gain:.02})},
+  welcome(){[392,523.25,659.25].forEach((f,i)=>tone(f,{t:i*.09,dur:.6,type:'triangle',gain:.04,attack:.012}))},
+  success(){[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,{t:i*.08,dur:.5,type:'square',gain:.016,attack:.008}));tone(1046.5,{t:.34,dur:1,type:'triangle',gain:.04})}}})();
+</script>
+<script>
+// 픽셀 그림은 전부 코드로 그린다. 글자 한 칸이 픽셀 한 칸이다.
+function sprite(rows,pal,s=3){
+  const c=document.createElement('canvas');c.width=rows[0].length;c.height=rows.length;
+  c.style.width=c.width*s+'px';c.style.height=c.height*s+'px';
+  const x=c.getContext('2d');
+  rows.forEach((r,y)=>[...r].forEach((ch,i)=>{if(pal[ch]){x.fillStyle=pal[ch];x.fillRect(i,y,1,1)}}));
+  return c}
+function rng(seed){return()=>(seed=seed*1664525+1013904223>>>0)/4294967296}
+function place(el,css,cls=''){el.classList.add('deco');if(cls)el.classList.add(cls);el.setAttribute('aria-hidden','true');el.style.cssText+=css;stage.appendChild(el);return el}
+const stage=document.getElementById('stage'),frame=document.getElementById('frame');
+
+const HEART=['.rr.rr.','rllrrrr','rlrrrrr','rrrrrrr','.rrrrr.','..rrr..','...r...'];
+const GEM=['.ppppp.','pwwpppP','.pwppP.','..ppP..','...P...'];
+const COIN=['.yyy.','yYyyo','yYyyo','yyyyo','.ooo.'];
+const STAR=['...w...','...w...','..wpw..','wwpWpww','..wpw..','...w...','...w...'];
+const CLOUD=['......oooo......','....oooooooo..o.','..oopppppoooooo.','.oppppppppppooo.','opppbbpppppbppoo','bbbbbbbbbbbbbbbb','.bbbbbbbbbbbbbb.','...bbbbb.bbbb...'];
+const NPC=[
+ '....hhhhh......',
+ '...hHHHHHh.....',
+ '..hHHHHHHHh....',
+ '..hHkkkkkHh..l.',
+ '..hkekkkekh.lyl',
+ '..hHkkkkkHh..l.',
+ '...hHHHHHh...s.',
+ '..hHHHHHHHh..s.',
+ '.hHHHHHHHHHh.s.',
+ '.hHHHgHHHHHhhs.',
+ '.hHHHgHHHHHh.s.',
+ '.hHHHgHHHHHh.s.',
+ '.hHHHHHHHHHh.s.',
+ '.hhhhhhhhhhh.s.'];
+const SLIME=['...gggg...','..gGGGGg..','.gGGGGGGg.','gGkGGGkGGg','gGGGGGGGGg','gggggggggg'];
+const FLOWER=['.y.y.','yyoyy','.yyy.','..g..','g.g.g','.ggg.','..g..'];
+const CHEST=['.ooooooooo.','oOOOOOOOOOo','oOOOOyOOOOo','bbbbbyybbbb','oOOOOOOOOOo','oOOOOOOOOOo','ooooooooooo'];
+const CHEST_OPEN=['.ooooooooo.','oOOOOOOOOOo','bbbbbbbbbbb','.yWyWyWyWy.','oyyyyyyyyyo','oOOOOyOOOOo','oOOOOOOOOOo','ooooooooooo'];
+const FLAME=['...r...','..rrr..','.rryrr.','.ryyyr.','.ryYyr.','..yyy..'];
+const BACK=['...w','..w.','.w..','w...','.w..','..w.','...w'];
+
+const P={r:'#F2563F',l:'#FFC1B0',p:'#FF9BD2',P:'#D45AA8',w:'#FFFFFF',W:'#FFF2A8',y:'#FFD84D',Y:'#FFF2A8',o:'#E0921A',
+  h:'#100A18',H:'#4B3A78',k:'#140C1E',e:'#FFD84D',g:'#FFD84D',s:'#B99A6B'};
+const CHEST_PAL={o:'#7A4A1E',O:'#E0921A',y:'#FFD84D',W:'#FFF2A8',b:'#4A2F3A'};
+
+// 달
+(()=>{const n=28,c=document.createElement('canvas');c.width=c.height=n;c.style.width=c.style.height=n*3+'px';const x=c.getContext('2d'),r=rng(7);
+  for(let j=0;j<n;j++)for(let i=0;i<n;i++){const d=Math.hypot(i-13.5,j-13.5);if(d<13.6){x.fillStyle=r()<.14?'#F0B93A':d>11.5?'#FFD84D':'#FFE36E';x.fillRect(i,j,1,1)}}
+  place(c,'left:26px;top:18px')})();
+place(sprite(CLOUD,{o:'#F3A25C',p:'#E77FB0',b:'#5D5BC0'},4),'right:14px;top:26px','drift');
+place(sprite(CLOUD,{o:'#F3A25C',p:'#E77FB0',b:'#5D5BC0'},2),'left:44%;top:66px');
+place(sprite(STAR,P,3),'left:128px;top:30px','twinkle');
+place(sprite(STAR,P,2),'right:60px;top:112px','twinkle').style.animationDelay='.6s';
+place(sprite(STAR,P,2),'left:22px;bottom:252px','twinkle').style.animationDelay='.3s';
+place(sprite(STAR,P,3),'left:52%;bottom:150px','twinkle').style.animationDelay='.9s';
+
+// 돌탑과 불꽃: 문지기가 지키는 관문
+(()=>{const w=30,h=64,c=document.createElement('canvas');c.width=w;c.height=h;c.style.width=w*3+'px';c.style.height=h*3+'px';const x=c.getContext('2d'),r=rng(21);
+  const stone=(i,j)=>{x.fillStyle=(j%4===0||(i+(j>>2)*3)%6===0)?'#6E6A78':r()<.5?'#A6A1AD':'#8C8794';x.fillRect(i,j,1,1)};
+  for(let j=0;j<6;j++)for(let i=0;i<w;i++)if(i%8<5)stone(i,j);
+  for(let j=6;j<11;j++)for(let i=0;i<w;i++)stone(i,j);
+  for(let j=11;j<h;j++)for(let i=3;i<w-3;i++)stone(i,j);
+  x.fillStyle='#2A2436';x.fillRect(11,20,8,13);x.fillRect(12,19,6,1);x.fillRect(9,46,12,18);x.fillRect(10,45,10,1);
+  x.fillStyle='#FFD84D';x.fillRect(13,24,4,8);
+  place(c,'right:-4px;bottom:30px');
+  place(sprite(FLAME,P,4),'right:27px;bottom:218px','flame')})();
+
+// 나무
+(()=>{const w=44,h=46,c=document.createElement('canvas');c.width=w;c.height=h;c.style.width=w*3+'px';c.style.height=h*3+'px';const x=c.getContext('2d'),r=rng(5);
+  x.fillStyle='#4A2F3A';x.fillRect(19,28,6,18);x.fillRect(16,42,12,4);
+  [[22,14,13],[11,20,10],[33,20,10],[22,24,11]].forEach(([a,b,R])=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++)if(Math.hypot(i-a,j-b)<R+r()*1.5){x.fillStyle=r()<.22?'#3FB27F':r()<.4?'#0E5A4A':'#14785A';x.fillRect(i,j,1,1)}});
+  place(c,'left:-14px;bottom:26px')})();
+
+// 땅
+(()=>{const w=96,h=12,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d'),r=rng(11);
+  for(let i=0;i<w;i++){const top=2+Math.floor(r()*3);for(let j=top;j<h;j++){const v=r();x.fillStyle=j>9?'#0E3D2E':v<.14?'#3FB27F':v<.2?'#5D5BC0':'#14785A';x.fillRect(i,j,1,1)}}
+  const g=document.createElement('div');g.style.cssText=`left:0;right:0;bottom:0;height:36px;background:url(${c.toDataURL()}) repeat-x 0 0/288px 36px;image-rendering:pixelated`;
+  place(g,'')})();
+
+place(sprite(FLOWER,{...P,g:'#3FB27F',o:'#7A4A1E'},3),'left:39%;bottom:26px');
+place(sprite(FLOWER,{...P,g:'#3FB27F',o:'#7A4A1E'},3),'left:51%;bottom:26px');
+place(sprite(CHEST,CHEST_PAL,3),'left:60%;bottom:28px');
+const slime=place(sprite(SLIME,{g:'#5B7FE0',G:'#8FA8F0',k:'#1E1329'},3),'left:118px;bottom:28px;z-index:1');
+
+// 슬라임: 좌우 화살표 키로 움직이고, 키를 놓고 잠시 뒤부터는 혼자 돌아다닌다. 그림 한 칸(3px) 단위로 이동한다.
+(()=>{const held={ArrowLeft:-1,ArrowRight:1},down=new Set(),calm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  let x=118,last=performance.now(),acc=0,idleAt=0,target=null,wait=800;
+  function tick(){const t=performance.now(),dt=Math.min(t-last,50),max=stage.clientWidth-30,dir=[...down].reduce((s,k)=>s+held[k],0);last=t;let v=0;
+    if(dir){v=dir*.18;idleAt=t+1500;target=null}
+    else if(!calm&&t>idleAt){
+      if(target===null){wait-=dt;if(wait<=0)target=Math.floor(Math.random()*max)}
+      else if(Math.abs(target-x)<3){target=null;wait=600+Math.random()*1800}
+      else v=Math.sign(target-x)*.06}
+    acc+=Math.abs(v)*dt;const n=Math.floor(acc/3)*3;acc-=n;x=Math.max(0,Math.min(max,x+Math.sign(v)*n));
+    slime.style.left=x+'px';slime.style.transform=v?`translateY(${Math.floor(t/110)%2?-3:0}px)`:'';
+    requestAnimationFrame(tick)}
+  addEventListener('keydown',e=>{if(!(e.key in held)||e.target.matches('input'))return;e.preventDefault();down.add(e.key)});
+  addEventListener('keyup',e=>down.delete(e.key));
+  addEventListener('blur',()=>down.clear());
+  requestAnimationFrame(tick)})();
+
+// ---------- 가짜 인증: 나중에 같은 함수 이름으로 Supabase 구현을 끼운다 ----------
+const DAY=864e5,TEST_CODE='123456',ago=d=>Date.now()-d*DAY;
+const PERKS=[{name:'시즌 패스',live:true},{name:'황금 테두리',live:false}];
+const accounts=new Map([
+  ['active@pixelology.test',{nick:'네온펭귄',pw:'pixel1234',level:4,xp:420,points:800,perks:PERKS,seen:ago(1),code:'PX-NEON'}],
+  ['dormant@pixelology.test',{nick:'졸린용사',pw:'pixel1234',level:9,xp:2010,points:1500,perks:PERKS,seen:ago(214),code:'PX-NAPS'}],
+  ['qwer@gmail.com',{nick:'이미있던용사',pw:'pixel1234',level:6,xp:880,points:1200,perks:PERKS,seen:ago(2),code:'PX-QWER'}]]);
+const saves=new Map([
+  ['back20@pixelology.test',{nick:'혜성라이더',level:7,xp:1240,points:1000,perks:PERKS,left:ago(20),restores:0}],
+  ['back60@pixelology.test',{nick:'말랑한여우',level:5,xp:760,points:1000,perks:PERKS,left:ago(60),restores:0}],
+  ['back120@pixelology.test',{nick:'번개토끼',level:3,xp:300,points:400,perks:PERKS,left:ago(120),restores:0}],
+  ['1234@gmail.com',{nick:'돌아온탕아',level:8,xp:1650,points:2000,perks:PERKS,left:ago(40),restores:0}],
+  ['again@pixelology.test',{nick:'돌아온고양이',level:6,xp:900,points:1000,perks:PERKS,left:ago(10),restores:1}]]);
+const TAKEN=['gamer123','admin','운영자','pixelology'];
+// 상점 게임은 가상의 시연용이다. 구매는 앱 포인트로만 하고 실제 결제는 없다.
+const GAMES=[
+  {id:'slime',name:'슬라임 탐험대',genre:'어드벤처',price:0,art:'slime:3'},
+  {id:'farm',name:'꽃밭 농장',genre:'시뮬레이션',price:100,art:'flower:4'},
+  {id:'dungeon',name:'보물 던전',genre:'로그라이크',price:500,art:'box:3'},
+  {id:'racer',name:'별빛 레이서',genre:'레이싱',price:1200,art:'star:4'}];
+
+// 복귀 보상표: 30일 이내 전부, 31~90일 포인트 50%와 진행 중인 혜택, 90일 초과는 파기. 포인트·혜택 복원은 이메일당 1회.
+function rewardFor(save){const days=Math.floor((Date.now()-save.left)/DAY);
+  if(days>90)return null;
+  if(save.restores>0)return{days,rate:0,perks:[],tier:'again'};
+  return days<=30?{days,rate:1,perks:save.perks,tier:'near'}:{days,rate:.5,perks:save.perks.filter(p=>p.live),tier:'far'}}
+// 메일 발송: 아래 두 값을 채우면 실제 메일이 나간다. 비워 두면 코드 123456으로 시험한다. 공개 키만 넣는다.
+const SUPABASE={url:'https://lurooozjznncrgdmhwqb.supabase.co',publicKey:'sb_publishable_anNfObMOMVLUJfat_0ScUA_9l9qXzAX'};
+const live=SUPABASE.url?window.supabase.createClient(SUPABASE.url,SUPABASE.publicKey,{auth:{persistSession:false}}):null;
+// 시험 계정은 메일을 보내지 않고 코드 123456으로 확인한다. 주인이 따로 있는 주소로 메일이 나가면 안 되기 때문이다.
+const SEEDED=new Set([...accounts.keys(),...saves.keys()]);
+const RESEND_SECONDS=60,sentAt=new Map();
+const resendWait=email=>Math.max(0,Math.ceil(RESEND_SECONDS-(Date.now()-(sentAt.get(email)??-Infinity))/1000));
+const auth={
+  // 실패하면 안내 문장을, 성공하면 빈 문자열을 돌려준다. 대기 중인 같은 이메일은 이미 보낸 메일을 쓴다.
+  async send(email){if(resendWait(email)>0)return'';
+    if(live&&!SEEDED.has(email)){const{error}=await live.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+      if(error){console.error('메일 발송 실패',error);return error.status===429?'발송 한도 초과 · 잠시 뒤 다시 시도':'메일 발송 실패 · 잠시 뒤 다시 시도'}}
+    sentAt.set(email,Date.now());return''},
+  async verify(email,code){
+    if(live&&!SEEDED.has(email)){const{error}=await live.auth.verifyOtp({email,token:code,type:'email'});if(error)return{kind:error.status===429?'limit':'wrong'}}
+    else if(code!==TEST_CODE)return{kind:'wrong'};
+    const a=accounts.get(email);if(a)return{kind:'account',user:a};
+    const s=saves.get(email),r=s&&rewardFor(s);if(r)return{kind:'save',save:s,reward:r};
+    if(s)saves.delete(email);return{kind:'new'}},
+  login(email,pw){const a=accounts.get(email);return a&&a.pw===pw?a:null},
+  codeOwner(code){return[...accounts.values()].find(a=>a.code===code)},
+  create(email,p){const u={...p,level:1,xp:0,points:p.bonus?100:0,perks:[],seen:Date.now(),code:'PX-'+Math.random().toString(36).slice(2,6).toUpperCase()};accounts.set(email,u);return u},
+  restore(email,s,r,pw){const u={nick:s.nick,pw,level:s.level,xp:s.xp,points:Math.floor(s.points*r.rate),perks:r.perks,seen:Date.now(),code:'PX-'+Math.random().toString(36).slice(2,6).toUpperCase(),restores:s.restores+1};
+    saves.delete(email);accounts.set(email,u);return u},
+  withdraw(email,keep){const u=accounts.get(email);accounts.delete(email);
+    if(keep)saves.set(email,{nick:u.nick,level:u.level,xp:u.xp,points:u.points,perks:u.perks,left:Date.now(),restores:u.restores||0})}};
+
+// ---------- 화면 ----------
+const S={email:'',mode:'signup',tries:3,user:null,save:null,reward:null,bonus:false};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=s=>frame.querySelector(s),$$=s=>[...frame.querySelectorAll(s)];
+const okEmail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+const okPw=v=>/[A-Za-z]/.test(v)&&/[0-9]/.test(v)&&v.length>=8;
+function nickProblem(v){const n=[...v].length;
+  if(n<2)return`2자 이상 필요 · 지금 ${n}자`;if(n>12)return`12자 이하 필요 · 지금 ${n}자`;
+  if(/[^가-힣A-Za-z0-9]/.test(v))return'한글·영문·숫자만 사용 가능';if(TAKEN.includes(v.toLowerCase())||[...accounts.values()].some(a=>a.nick===v))return'사용 중인 닉네임';return''}
+const ADJ=['반짝이는','용감한','졸린','네온','우주','말랑한','전설의','수줍은','번개','배고픈'],NOUN=['고양이','토끼','여우','유니콘','펭귄','용사','마법사','별똥별','젤리','슬라임'];
+function randomNick(){let n;do{n=ADJ[Math.random()*ADJ.length|0]+NOUN[Math.random()*NOUN.length|0]+(Math.random()*99+1|0)}while([...n].length>12||nickProblem(n));return n}
+
+function mount(html,after){frame.innerHTML=html;
+  frame.querySelectorAll('[data-sprite]').forEach(el=>{const[k,s]=el.dataset.sprite.split(':');
+    const art={npc:[NPC,P],coin:[COIN,P],back:[BACK,P],heart:[HEART,P],gem:[GEM,P],chest:[CHEST_OPEN,CHEST_PAL],star:[STAR,P],box:[CHEST,CHEST_PAL],slime:[SLIME,{g:'#5B7FE0',G:'#8FA8F0',k:'#1E1329'}],flower:[FLOWER,{...P,g:'#3FB27F',o:'#7A4A1E'}]}[k];el.appendChild(sprite(art[0],art[1],+s||3))});
+  frame.querySelectorAll('[data-eye]').forEach(b=>b.onclick=()=>{const i=b.parentElement.querySelector('input'),show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'가리기':'보기';b.setAttribute('aria-pressed',show)});
+  frame.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+  after&&after();
+  const first=$('input:not([type=checkbox])');if(first)first.focus()}
+const ENTRY_SOUND={done:'success',dormant:'welcome',restore:'welcome'};
+function go(name,...a){document.body.classList.toggle('form',name!=='title');screens[name](...a);scrollTo(0,0);SFX[ENTRY_SOUND[name]||'page']()}
+const top_=(back,gems=0)=>`<div class="top"><button class="back" type="button" aria-label="뒤로" data-go="${back}"><span data-sprite="back:3"></span></button>
+  ${gems?`<div class="row" aria-label="가입 진행 ${gems}/5" role="img">${[1,2,3,4,5].map(i=>`<span id="g${i}" class="${i>gems?'dim':''}" data-sprite="gem:3"></span>`).join('')}</div>`:''}</div>`;
+const talk=(line)=>`<div class="talk"><span data-sprite="npc:4" aria-hidden="true"></span><p class="say"><span class="who">문지기</span>${line}</p></div>`;
+const pwField=(id,label)=>`<div class="field"><label for="${id}">${label}</label><div class="box"><input class="pad" id="${id}" type="password" autocomplete="new-password"><button class="mini" type="button" data-eye aria-pressed="false">보기</button></div><p class="note" id="${id}N">영문·숫자 포함 8자 이상</p></div>`;
+function mark(input,note,msg,base=''){if(msg&&note.textContent!==msg)SFX.error();input.classList.toggle('bad',!!msg);input.setAttribute('aria-invalid',!!msg);note.textContent=msg||base;note.classList.toggle('bad',!!msg)}
+function enter(user){user.seen=Date.now();S.user=user;go('lobby')}
+
+const screens={
+  title(){mount(`<p class="brand"><span data-sprite="coin:3"></span>PIXELOLOGY<span data-sprite="coin:3"></span></p>
+    <h1>픽셀올로지</h1>
+    <div class="acts"><button class="btn go" type="button" id="new">새로 시작</button><button class="btn alt" type="button" data-go="login">이어하기</button></div>`,
+    ()=>{$('#new').onclick=()=>{S.mode='signup';go('email')}})},
+
+  email(){const reset=S.mode==='reset';mount(`${top_(reset?'login':'title',reset?0:1)}${talk(reset?'암호를 잊었나.<br>어디서 왔는지 적게.':'어디서 왔는지부터 적게.')}
+    <form novalidate><div class="field"><label for="em">이메일</label><input id="em" type="email" autocomplete="email" inputmode="email" placeholder="player@email.com" value="${esc(S.email)}"><p class="note" id="emN"></p></div>
+    <button class="btn go">코드 받기</button></form>`,()=>{const i=$('#em'),n=$('#emN');
+      i.onblur=()=>{if(i.value.trim())mark(i,n,okEmail(i.value.trim())?'':'이메일 형식 확인 · 예: player@email.com')};
+      $('form').onsubmit=async e=>{e.preventDefault();const v=i.value.trim().toLowerCase(),b=$('form .btn');if(!okEmail(v)){mark(i,n,'이메일 형식 확인 · 예: player@email.com');i.focus();return}
+        b.disabled=true;b.textContent='보내는 중';const err=await auth.send(v);
+        if(err){b.disabled=false;b.textContent='코드 받기';mark(i,n,err);return}
+        S.email=v;S.tries=3;go('code')}})},
+
+  code(){const hearts=()=>[1,2,3].map(i=>`<span class="${i>S.tries?'dim':''}" data-sprite="heart:3"></span>`).join('');
+    mount(`${top_('email',S.mode==='reset'?0:2)}${talk('자네 앞으로 패를 보냈네.<br>숫자를 불러 보게.')}
+    <form novalidate><div class="field"><label for="cd">${SEEDED.has(S.email)?`시험 계정 · 메일 발송 없음 · 코드 ${TEST_CODE} 입력`:`${esc(S.email)}로 보낸 코드`}</label><input class="code" id="cd" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><p class="note" id="cdN" role="alert"></p></div>
+    <div class="row" id="hearts" role="img" aria-label="남은 시도 ${S.tries}회">${hearts()}</div>
+    <button class="btn go">확인</button></form><button class="link" type="button" id="again">코드 다시 받기</button>`,()=>{const i=$('#cd'),n=$('#cdN');
+      const again=$('#again'),paint=()=>{const w=resendWait(S.email);again.disabled=w>0;again.textContent=w>0?`코드 다시 받기 · ${w}초`:'코드 다시 받기'};
+      paint();const timer=setInterval(()=>again.isConnected?paint():clearInterval(timer),1000);
+      again.onclick=async()=>{again.disabled=true;const err=await auth.send(S.email);if(err){mark(i,n,err);paint();return}
+        S.tries=3;go('code');$('#cdN').textContent='새 코드 발송 · 이전 코드는 무효'};
+      $('form').onsubmit=async e=>{e.preventDefault();const b=$('form .btn');b.disabled=true;const r=await auth.verify(S.email,i.value.trim());b.disabled=false;
+        if(r.kind==='limit'){mark(i,n,'시도 한도 초과 · 잠시 뒤 다시 시도');return}
+        if(r.kind==='wrong'){S.tries--;if(S.tries<=0){go('email');mark($('#em'),$('#emN'),'시도 횟수 초과 · 코드를 다시 받아야 함');return}
+          $('#hearts').innerHTML='';[1,2,3].forEach(k=>{const h=document.createElement('span');if(k>S.tries)h.className='dim';h.appendChild(sprite(HEART,P,3));$('#hearts').appendChild(h)});
+          mark(i,n,`코드 불일치 · 남은 시도 ${S.tries}회`);i.value='';i.focus();return}
+        if(S.mode==='reset'&&r.kind==='account'){S.user=r.user;go('newpw');return}
+        if(r.kind==='account'){S.user=r.user;go(Date.now()-r.user.seen>30*DAY?'dormant':'known');return}
+        if(r.kind==='save'){S.save=r.save;S.reward=r.reward;go('restore');return}
+        go('profile')}})},
+
+  profile(){mount(`${top_('title',2)}${talk('처음 보는 얼굴이군.<br>이름이 뭔가?')}
+    <form novalidate>
+      <div class="field"><label for="nk">닉네임</label><div class="box"><input class="pad" id="nk" type="text" autocomplete="nickname" maxlength="20"><button class="mini" type="button" id="dice">추천</button></div><p class="note" id="nkN">2~12자 · 한글·영문·숫자</p></div>
+      ${pwField('pw','비밀번호')}
+      <div class="field"><label for="rf">추천해 준 사람의 코드 (선택)</label><input id="rf" type="text" autocomplete="off" placeholder="PX-0000"><p class="note" id="rfN">입력하면 양쪽 모두 100P</p></div>
+      <fieldset class="checks"><legend class="lab">필수 동의</legend>
+        <label class="check"><input type="checkbox" id="c1">만 14세 이상이다</label>
+        <label class="check"><input type="checkbox" id="c2">이용약관에 동의한다</label>
+        <label class="check"><input type="checkbox" id="c3">개인정보 수집·이용에 동의한다</label>
+      </fieldset><p class="note" id="cN" role="alert"></p>
+      <button class="btn go">가입 완료</button></form>`,()=>{const nk=$('#nk'),nkN=$('#nkN'),pw=$('#pw'),pwN=$('#pwN'),rf=$('#rf'),rfN=$('#rfN'),cs=$$('[id^=c]:not(#cN)');
+      const gems=()=>{const on=[!nickProblem(nk.value.trim()),okPw(pw.value),cs.every(c=>c.checked)];on.forEach((v,k)=>$('#g'+(k+3)).classList.toggle('dim',!v))};
+      $('form').oninput=gems;
+      nk.onblur=()=>{if(nk.value.trim())mark(nk,nkN,nickProblem(nk.value.trim()),'2~12자 · 한글·영문·숫자')};
+      pw.onblur=()=>{if(pw.value)mark(pw,pwN,okPw(pw.value)?'':'영문·숫자 포함 8자 이상 필요','영문·숫자 포함 8자 이상')};
+      $('#dice').onclick=()=>{let k=0;const t=setInterval(()=>{nk.value=randomNick();SFX.tick();if(++k>=8){clearInterval(t);mark(nk,nkN,'','2~12자 · 한글·영문·숫자');SFX.coin();gems()}},70)};
+      $('form').onsubmit=e=>{e.preventDefault();const name=nk.value.trim(),code=rf.value.trim().toUpperCase(),p1=nickProblem(name),p2=okPw(pw.value)?'':'영문·숫자 포함 8자 이상 필요',owner=code&&auth.codeOwner(code),p3=code&&!owner?'없는 코드 · 비워 두어도 가입 가능':'',p4=cs.every(c=>c.checked)?'':'필수 항목 3개 동의 필요';
+        mark(nk,nkN,p1,'2~12자 · 한글·영문·숫자');mark(pw,pwN,p2,'영문·숫자 포함 8자 이상');mark(rf,rfN,p3,'입력하면 양쪽 모두 100P');$('#cN').textContent=p4;$('#cN').classList.toggle('bad',!!p4);
+        if(p1)return nk.focus();if(p2)return pw.focus();if(p3)return rf.focus();if(p4)return cs.find(c=>!c.checked).focus();
+        if(owner)owner.points+=100;S.bonus=!!owner;S.user=auth.create(S.email,{nick:name,pw:pw.value,bonus:S.bonus});go('done')}})},
+
+  done(){const u=S.user;mount(`<div class="hero"><div class="row burst" aria-hidden="true"><span class="twinkle" data-sprite="star:3"></span><span data-sprite="star:6"></span><span class="twinkle" data-sprite="star:3"></span></div>
+      <p class="tag">WELCOME TO PIXELOLOGY</p><p class="big">${esc(u.nick)}</p></div>
+    ${talk('들어가게.<br>오늘부터 자네도 여기 사람일세.')}
+    <dl><dt>시작 레벨</dt><dd>Lv.${u.level}</dd><dt>포인트</dt><dd><b>${u.points.toLocaleString()}P</b></dd><dt>내 추천인 코드</dt><dd>${esc(u.code)}</dd></dl>
+    ${S.bonus?'<p class="note ok">추천인 코드 적용 · 100P 지급</p>':''}
+    <button class="btn go" type="button" data-go="shop">다음</button>`)},
+
+  shop(){const u=S.user,owned=u.owned??=[];mount(`<div class="top"><p class="tag">GAME SHOP</p><p class="wallet">보유 <b>${u.points.toLocaleString()}P</b></p></div>
+    ${talk('안에서 놀 거리는<br>여기서 고르게.')}
+    <ul class="shop">${GAMES.map(g=>{const has=owned.includes(g.id),short=!has&&g.price>u.points;
+      return`<li><span class="cover" data-sprite="${g.art}" aria-hidden="true"></span><div class="info"><p class="name">${esc(g.name)}</p><p class="note">${esc(g.genre)}</p></div>
+      <button class="buy" type="button" data-game="${g.id}" ${has||short?'disabled':''}>${has?'보유 중':g.price?`${g.price.toLocaleString()}P`:'무료'}</button>
+      ${short?`<p class="note lack">${(g.price-u.points).toLocaleString()}P 부족</p>`:''}</li>`}).join('')}</ul>
+    <button class="btn go" type="button" id="in">로비로 간다</button>`,()=>{
+      $$('[data-game]').forEach(b=>b.onclick=()=>{const g=GAMES.find(x=>x.id===b.dataset.game);u.points-=g.price;owned.push(g.id);SFX.coin();screens.shop()});
+      $('#in').onclick=()=>enter(u)})},
+
+  login(){mount(`${top_('title')}${talk('아는 얼굴인가.<br>이름표를 보여 주게.')}
+    <form novalidate><div class="field"><label for="lem">이메일</label><input id="lem" type="email" autocomplete="username" inputmode="email" placeholder="player@email.com" value="${esc(S.email)}"></div>
+    <div class="field"><label for="lpw">비밀번호</label><div class="box"><input class="pad" id="lpw" type="password" autocomplete="current-password"><button class="mini" type="button" data-eye aria-pressed="false">보기</button></div><p class="note" id="lN" role="alert"></p></div>
+    <button class="btn go">입장</button></form>
+    <button class="link" type="button" id="forgot">비밀번호를 잊었다</button>
+    <button class="link" type="button" id="bycode">코드로 입장 · 탈퇴했다 돌아온 경우</button>`,()=>{
+      $('#forgot').onclick=()=>{S.mode='reset';go('email')};
+      $('#bycode').onclick=()=>{S.mode='signup';go('email')};
+      $('form').onsubmit=e=>{e.preventDefault();const em=$('#lem').value.trim().toLowerCase(),u=auth.login(em,$('#lpw').value);
+        if(!u){mark($('#lpw'),$('#lN'),'이메일 또는 비밀번호 불일치');$('#lpw').focus();return}
+        S.email=em;S.user=u;Date.now()-u.seen>30*DAY?go('dormant'):enter(u)}})},
+
+  known(){mount(`<div class="hero"><p class="tag">ALREADY A PLAYER</p><p class="big">${esc(S.user.nick)}</p></div>
+    ${talk('아는 얼굴이군.<br>자네 이름은 이미 명단에 있네.')}
+    <dl><dt>레벨</dt><dd>Lv.${S.user.level} · ${S.user.xp.toLocaleString()} XP</dd><dt>포인트</dt><dd>${S.user.points.toLocaleString()}P</dd></dl>
+    <p class="note">새로 가입할 필요 없음 · 기존 계정으로 입장</p>
+    <button class="btn go" type="button" id="in">내 방으로 간다</button>`,()=>{$('#in').onclick=()=>enter(S.user)})},
+
+  dormant(){const d=Math.floor((Date.now()-S.user.seen)/DAY);mount(`<div class="hero"><p class="tag">WELCOME BACK</p><p class="big">${esc(S.user.nick)}</p></div>
+    ${talk(`${d}일 만이군.<br>자네 방은 치우지 않았네.`)}
+    <dl><dt>레벨</dt><dd>Lv.${S.user.level} · ${S.user.xp.toLocaleString()} XP</dd><dt>포인트</dt><dd>${S.user.points.toLocaleString()}P 그대로</dd></dl>
+    <button class="btn go" type="button" id="in">내 방으로 간다</button>`,()=>{$('#in').onclick=()=>enter(S.user)})},
+
+  restore(){const s=S.save,r=S.reward,line={near:'벌써 돌아왔나.<br>짐도 안 풀었네.',far:'돌아왔군.<br>자네 자리는 그대로 뒀네.',again:'또 돌아왔군.<br>이번엔 이름만 찾아가게.'}[r.tier];
+    mount(`<div class="hero"><span data-sprite="chest:5" aria-hidden="true"></span><p class="tag">SAVE FILE FOUND</p></div>${talk(line)}
+    <dl><dt>닉네임</dt><dd>${esc(s.nick)}</dd><dt>레벨</dt><dd>Lv.${s.level} · ${s.xp.toLocaleString()} XP</dd>
+      <dt>포인트</dt><dd><b>${Math.floor(s.points*r.rate).toLocaleString()}P</b> / ${s.points.toLocaleString()}P</dd>
+      <dt>혜택</dt><dd>${r.perks.map(p=>esc(p.name)).join(', ')||'없음'}</dd><dt>탈퇴 후</dt><dd>${r.days}일</dd></dl>
+    <form novalidate>${pwField('rp','새 비밀번호')}<button class="btn go">이어서 들어간다</button></form>
+    <button class="link" type="button" id="fresh">기록을 지우고 새로 시작</button>`,()=>{
+      $('#fresh').onclick=()=>{saves.delete(S.email);go('profile')};
+      $('form').onsubmit=e=>{e.preventDefault();const i=$('#rp');if(!okPw(i.value)){mark(i,$('#rpN'),'영문·숫자 포함 8자 이상 필요');i.focus();return}enter(auth.restore(S.email,s,r,i.value))}})},
+
+  newpw(){mount(`${top_('login')}${talk('자네만 아는 암호를 정하게.<br>나도 안 볼 테니.')}
+    <form novalidate>${pwField('np','새 비밀번호')}<button class="btn go">암호 바꾸기</button></form>`,()=>{
+      $('form').onsubmit=e=>{e.preventDefault();const i=$('#np');if(!okPw(i.value)){mark(i,$('#npN'),'영문·숫자 포함 8자 이상 필요');i.focus();return}S.user.pw=i.value;S.mode='signup';enter(S.user)}})},
+
+  lobby(){const u=S.user;mount(`<div class="hero"><p class="tag">LOBBY</p><p class="big">${esc(u.nick)}</p></div>
+    <dl><dt>레벨</dt><dd>Lv.${u.level} · ${u.xp.toLocaleString()} XP</dd><dt>포인트</dt><dd><b>${u.points.toLocaleString()}P</b></dd>
+      <dt>혜택</dt><dd>${u.perks.map(p=>esc(p.name)).join(', ')||'없음'}</dd><dt>보유 게임</dt><dd>${(u.owned??[]).length}개</dd><dt>내 추천인 코드</dt><dd>${esc(u.code)}</dd></dl>
+    <button class="btn go" type="button" data-go="shop">게임 상점</button>
+    <div class="acts"><button class="btn alt" type="button" id="copy">코드 복사</button><button class="btn alt" type="button" id="out">나가기</button></div>
+    <button class="link" type="button" data-go="withdraw">탈퇴</button>`,()=>{
+      $('#out').onclick=()=>{S.user=null;go('title')};
+      $('#copy').onclick=e=>{const b=e.currentTarget;SFX.coin();navigator.clipboard?.writeText(u.code).then(()=>b.textContent='복사됨',()=>b.textContent=u.code)}})},
+
+  withdraw(){const u=S.user;mount(`${top_('lobby')}${talk('가는 건 말리지 않네.<br>자리를 남겨 둘까?')}
+    <form novalidate><label class="check"><input type="checkbox" id="keep">세이브 파일을 남긴다</label>
+    <p class="note">닉네임, 레벨, 포인트 ${u.points.toLocaleString()}P, 혜택을 90일 동안 보관하고 그 뒤 자동 삭제. 30일 이내 복귀 시 100%, 31~90일은 포인트 50%와 진행 중인 혜택만 복원. 체크하지 않으면 전부 바로 삭제.</p>
+    <button class="btn alt">탈퇴한다</button></form><button class="link" type="button" data-go="lobby">남는다</button>`,()=>{
+      $('form').onsubmit=e=>{e.preventDefault();auth.withdraw(S.email,$('#keep').checked);S.user=null;go('title')}})}
+};
+// 소리: 첫 입력에서 켜고, 버튼 누름·입력칸·체크에 반응한다. 끄기 버튼은 화면 오른쪽 아래에 둔다.
+const NOTE=['..wwww','..wwww','..w..w','..w..w','www.ww','www...'];
+document.getElementById('sound').appendChild(sprite(NOTE,P,3));
+document.getElementById('sound').onclick=e=>{e.currentTarget.setAttribute('aria-pressed',SFX.toggle());SFX.tick()};
+addEventListener('pointerdown',e=>{SFX.init();if(e.target.closest('.btn,.link,.back,.mini'))SFX.press()},true);
+addEventListener('keydown',e=>{SFX.init();if(e.target.matches('input')&&(e.key.length===1||e.key==='Backspace'))SFX.type()},true);
+frame.addEventListener('focusin',e=>{if(e.target.matches('input:not([type=checkbox])'))SFX.focus()});
+frame.addEventListener('change',e=>{if(e.target.type==='checkbox')SFX.check(e.target.checked)});
+go('title');
+</script>
+</body>
+</html>
